@@ -1,0 +1,769 @@
+#include <EEPROM.h>
+#include <IRremote.h>
+#include <Keypad.h>
+#include <LiquidCrystal.h>
+
+const int rs = 2;
+const int en = 4; 
+const int d4 = 19;
+const int d5 = 18;
+const int d6 = 17;
+const int d7 = 16;
+LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
+
+#define R1 13
+#define R2 12
+#define R3 11
+#define R4 10
+#define C1 9
+#define C2 8
+#define C3 7
+#define C4 6
+#define IR_RECEIVE_PIN 5
+#define PIN_SEND 3
+#define dt_Send 30
+#define dt_Recieve 500
+#define ROWS 4
+#define COLS 4
+
+IRrecv IR(IR_RECEIVE_PIN); // Init IR receive
+
+// keypad
+//define the cymbols on the buttons of the keypads
+char hexaKeys[ROWS][COLS] = {
+  { '1', '2', '3', 'A' },
+  { '4', '5', '6', 'B' },
+  { '7', '8', '9', 'C' },
+  { '*', '0', '#', 'D' }
+};
+byte rowPins[ROWS] = { R1, R2, R3, R4 };  //connect to the row pinouts of the keypad
+byte colPins[COLS] = { C1, C2, C3, C4 };  //connect to the column pinouts of the keypad
+
+//initialize an instance of class NewKeypad
+Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
+//
+char choose;
+int choose_int; // casting choose to number
+char mode = 'A';
+char customKey;
+int key; // casting customKey to number
+uint32_t hexVal[10];
+uint32_t hexValB[10]; 
+uint32_t hexValC[10];
+uint32_t hexValD[10];
+unsigned long startTime;
+bool waitTimeout;
+int adderss;  // in the EEPROM
+
+void UpdateLongIntoEEPROM(int adderss, uint32_t number);  // write to eeprom and check if the data already written
+void InitData();// read data from eeprom
+uint32_t readLongFromEEPROM(int adderss);// read long from EEPROM
+void SendNECByPress(char key, uint32_t val); // send a IR NEC protocol
+uint32_t RecieveIR(int choose);   // return the recieve IR in long
+//
+void setup() {
+  IR.enableIRIn();
+  Serial.begin(9600);
+  IrSender.begin(PIN_SEND);
+  lcd.begin(16, 2);          // Initializes lcd
+  InitData();
+}
+
+void loop() {
+  lcd.setCursor(0, 0);
+  lcd.print("MODE:");
+  lcd.setCursor(5, 0);
+  lcd.print(mode);
+  lcd.setCursor(6, 0);
+  lcd.print("  ");
+  switch (mode)  // every mode press * to change signal IR
+  {
+    case 'A':
+      customKey = customKeypad.getKey();
+      key = atoi(&customKey);
+      switch (customKey)
+       {
+        case '0':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '1':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '2':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '3':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '4':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '5':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '6':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '7':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '8':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+        case '9':
+        SendNECByPress(customKey,hexVal[key]);
+        break;
+          
+        case '*':
+          lcd.setCursor(0, 0);
+          lcd.print("where do you      ");
+          lcd.setCursor(0, 1);
+          lcd.print("want to save it?");
+          startTime = millis();
+          waitTimeout = false;
+          while (choose == NO_KEY && !waitTimeout) {
+            choose = customKeypad.getKey();
+            if (millis() - startTime > 5000)  // Wait for up to 5 seconds
+              waitTimeout = true;
+          }
+          if (waitTimeout) {
+            lcd.setCursor(0, 0);
+            lcd.print("Timeout         ");
+            lcd.setCursor(0, 1);
+            lcd.print("                 ");
+            delay(dt_Recieve);
+          } 
+          else 
+          {
+            choose_int = atoi(&choose);
+            adderss = choose_int * 4;
+            switch (choose) 
+            {
+              case '0':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '1':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '2':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '3':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '4':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '5':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '6':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '7':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '8':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              case '9':
+                hexVal[choose_int] = RecieveIR(adderss);
+            break;
+              default:
+              break;
+            }
+            choose = NO_KEY;
+          } // end else
+      break;
+        case '#':
+          startTime = millis();
+          while (millis() - startTime < 5000)
+          {
+            lcd.setCursor(0, 0);
+            lcd.print("Thanks for using");
+            lcd.setCursor(0, 1);
+            lcd.print("Made By ELAD RZ");
+          }
+          lcd.setCursor(7, 0);
+            lcd.print("         ");
+            lcd.setCursor(0, 1);
+            lcd.print("                ");
+
+      break;
+        case 'A':
+          mode = 'A';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'B':
+          mode = 'B';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'C':
+          mode = 'C';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'D':
+          mode = 'D';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        default:
+        break;
+      }
+  break;
+    case 'B':
+      customKey = customKeypad.getKey();
+      key = atoi(&customKey);
+      switch (customKey)
+       {
+        case '0':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '1':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '2':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '3':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '4':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '5':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '6':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '7':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '8':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+        case '9':
+        SendNECByPress(customKey,hexValB[key]);
+        break;
+          
+        case '*':
+          lcd.setCursor(0, 0);
+          lcd.print("where do you      ");
+          lcd.setCursor(0, 1);
+          lcd.print("want to save it?");
+          startTime = millis();
+          waitTimeout = false;
+          while (choose == NO_KEY && !waitTimeout) {
+            choose = customKeypad.getKey();
+            if (millis() - startTime > 5000)  // Wait for up to 5 seconds
+              waitTimeout = true;
+          }
+          if (waitTimeout) {
+            lcd.setCursor(0, 0);
+            lcd.print("Timeout         ");
+            lcd.setCursor(0, 1);
+            lcd.print("                 ");
+            delay(dt_Recieve);
+          } 
+          else 
+          {
+            choose_int = atoi(&choose);
+            adderss = (choose_int * 4) + 40;
+            switch (choose) 
+            {
+              case '0':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '1':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '2':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '3':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '4':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '5':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '6':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '7':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '8':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              case '9':
+                hexValB[choose_int] = RecieveIR(adderss);
+            break;
+              default:
+              break;
+            }
+            choose = NO_KEY;
+          } // end else
+      break;
+        case '#':
+          startTime = millis();
+          while (millis() - startTime < 5000)
+          {
+            lcd.setCursor(0, 0);
+            lcd.print("Thanks for using");
+            lcd.setCursor(0, 1);
+            lcd.print("Made By ELAD RZ");
+          }
+          lcd.setCursor(7, 0);
+            lcd.print("         ");
+            lcd.setCursor(0, 1);
+            lcd.print("                ");
+
+      break;
+        case 'A':
+          mode = 'A';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'B':
+          mode = 'B';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'C':
+          mode = 'C';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'D':
+          mode = 'D';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        default:
+        break;
+      }
+  break;
+  case 'C':
+      customKey = customKeypad.getKey();
+      key = atoi(&customKey);
+      switch (customKey)
+       {
+        case '0':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '1':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '2':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '3':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '4':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '5':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '6':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '7':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '8':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+        case '9':
+        SendNECByPress(customKey,hexValC[key]);
+        break;
+          
+        case '*':
+          lcd.setCursor(0, 0);
+          lcd.print("where do you      ");
+          lcd.setCursor(0, 1);
+          lcd.print("want to save it?");
+          startTime = millis();
+          waitTimeout = false;
+          while (choose == NO_KEY && !waitTimeout) {
+            choose = customKeypad.getKey();
+            if (millis() - startTime > 5000)  // Wait for up to 5 seconds
+              waitTimeout = true;
+          }
+          if (waitTimeout) {
+            lcd.setCursor(0, 0);
+            lcd.print("Timeout         ");
+            lcd.setCursor(0, 1);
+            lcd.print("                 ");
+            delay(dt_Recieve);
+          } 
+          else 
+          {
+            choose_int = atoi(&choose);
+            adderss = (choose_int * 4) + 80;
+            switch (choose) 
+            {
+              case '0':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '1':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '2':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '3':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '4':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '5':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '6':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '7':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '8':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              case '9':
+                hexValC[choose_int] = RecieveIR(adderss);
+            break;
+              default:
+              break;
+            }
+            choose = NO_KEY;
+          } // end else
+      break;
+        case '#':
+          startTime = millis();
+          while (millis() - startTime < 5000)
+          {
+            lcd.setCursor(0, 0);
+            lcd.print("Thanks for using");
+            lcd.setCursor(0, 1);
+            lcd.print("Made By ELAD RZ");
+          }
+          lcd.setCursor(7, 0);
+            lcd.print("         ");
+            lcd.setCursor(0, 1);
+            lcd.print("                ");
+
+      break;
+        case 'A':
+          mode = 'A';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'B':
+          mode = 'B';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'C':
+          mode = 'C';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'D':
+          mode = 'D';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        default:
+        break;
+      }
+  break;
+  case 'D':
+      customKey = customKeypad.getKey();
+      key = atoi(&customKey);
+      switch (customKey)
+       {
+        case '0':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '1':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '2':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '3':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '4':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '5':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '6':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '7':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '8':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+        case '9':
+        SendNECByPress(customKey,hexValD[key]);
+        break;
+          
+        case '*':
+          lcd.setCursor(0, 0);
+          lcd.print("where do you      ");
+          lcd.setCursor(0, 1);
+          lcd.print("want to save it?");
+          startTime = millis();
+          waitTimeout = false;
+          while (choose == NO_KEY && !waitTimeout) {
+            choose = customKeypad.getKey();
+            if (millis() - startTime > 5000)  // Wait for up to 5 seconds
+              waitTimeout = true;
+          }
+          if (waitTimeout) {
+            lcd.setCursor(0, 0);
+            lcd.print("Timeout         ");
+            lcd.setCursor(0, 1);
+            lcd.print("                 ");
+            delay(dt_Recieve);
+          } 
+          else 
+          {
+            choose_int = atoi(&choose);
+            adderss = (choose_int * 4) + 120;
+            switch (choose) 
+            {
+              case '0':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '1':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '2':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '3':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '4':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '5':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '6':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '7':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '8':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              case '9':
+                hexValD[choose_int] = RecieveIR(adderss);
+            break;
+              default:
+              break;
+            }
+            choose = NO_KEY;
+          } // end else
+      break;
+        case '#':
+          startTime = millis();
+          while (millis() - startTime < 5000)
+          {
+            lcd.setCursor(0, 0);
+            lcd.print("Thanks for using");
+            lcd.setCursor(0, 1);
+            lcd.print("Made By ELAD RZ");
+          }
+          lcd.setCursor(7, 0);
+            lcd.print("         ");
+            lcd.setCursor(0, 1);
+            lcd.print("                ");
+
+      break;
+        case 'A':
+          mode = 'A';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'B':
+          mode = 'B';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'C':
+          mode = 'C';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        case 'D':
+          mode = 'D';
+          lcd.setCursor(0, 1);
+          lcd.print("           ");
+          lcd.setCursor(7, 0);
+          lcd.print("         ");
+      break;
+        default:
+        break;
+      }
+  break;
+  
+
+  default:
+  break;
+  }
+}
+uint32_t RecieveIR(int address){
+  lcd.setCursor(0, 0);
+  lcd.print("NUMBER:");
+  lcd.setCursor(7, 0);
+  lcd.print(address);
+  lcd.setCursor(8, 0);
+  lcd.print("       ");
+  lcd.setCursor(0, 1);
+  lcd.print("Send IR signal  ");
+  waitTimeout = false;                                 // initialize flag variable to false
+  startTime = millis();                                // record the start time
+  while (!waitTimeout && millis() - startTime < 5000)  // wait for ir response or timeout
+  {
+    if (IR.decode())  // check if an IR signal has been recieved
+    {
+      if(IR.decodedIRData.decodedRawData != 0 && IR.decodedIRData.decodedRawData != 0xFFFFFF)
+      {
+        lcd.setCursor(0, 1);
+        lcd.print(IR.decodedIRData.decodedRawData, HEX);
+        lcd.setCursor(8, 1);
+        lcd.print("         ");
+        delay(dt_Recieve);
+        IR.resume();
+        waitTimeout = true;  // set flag variable to true
+        UpdateLongIntoEEPROM(adderss,IR.decodedIRData.decodedRawData);
+      }
+      else
+      {
+        lcd.setCursor(0, 1);
+        lcd.print("Fail            ");
+        delay(dt_Recieve);
+        IR.resume();
+        waitTimeout = true;  // set flag variable to true
+      }
+      IR.resume();
+    }
+  }
+  if (!waitTimeout) {
+    lcd.setCursor(0, 1);
+    lcd.print("Timeout           ");
+  }
+  return IR.decodedIRData.decodedRawData;
+}
+void UpdateLongIntoEEPROM(int adderss, uint32_t number) {
+  EEPROM.update(adderss, (number >> 24) & 0xFF);
+  EEPROM.update(adderss + 1, (number >> 16) & 0xFF);
+  EEPROM.update(adderss + 2, (number >> 8) & 0xFF);
+  EEPROM.update(adderss + 3, number & 0xFF);
+  lcd.setCursor(0, 1);
+  lcd.print("Success           ");
+}
+void InitData() {
+  int A = 0;
+  int B = 0;
+  int C = 0;
+  int D = 0;
+  for (adderss = 0; adderss < 160; adderss += 4)  
+  {
+    lcd.setCursor(0, 1);
+    lcd.print("loading...      ");
+    Serial.println(adderss);
+    if (adderss >= 0 && adderss < 40)
+    {
+      hexVal[A] = readLongFromEEPROM(adderss);
+      A++;
+    }
+    if (adderss >= 40 && adderss < 80)
+    {
+      hexValB[B] = readLongFromEEPROM(adderss);
+      B++;
+    }
+    if (adderss >= 80 && adderss < 120)
+    {
+      hexValC[C] = readLongFromEEPROM(adderss);
+      C++;    
+    }
+    if (adderss >= 120 && adderss < 160)
+    {
+      hexValD[D] = readLongFromEEPROM(adderss);
+      D++;
+    }
+  }
+  
+  lcd.setCursor(0, 1);
+  lcd.print("            ");
+}
+uint32_t readLongFromEEPROM(int adderss) {
+  return ((uint32_t)EEPROM.read(adderss) << 24) + ((uint32_t)EEPROM.read(adderss + 1) << 16) + ((uint32_t)EEPROM.read(adderss + 2) << 8) + (uint32_t)EEPROM.read(adderss + 3);
+}
+void SendNECByPress(char key, uint32_t val){
+  lcd.setCursor(0, 1);
+  lcd.print("PRESSED:");
+  lcd.setCursor(8, 1);
+  lcd.print(key);
+  lcd.setCursor(9, 1);
+  lcd.print("       ");
+  if (val != 0) {
+    IrSender.sendNECRaw(val, 3);
+    lcd.setCursor(8, 0);
+    lcd.print(val, HEX);
+    delay(dt_Send);
+  } 
+  else {
+    lcd.setCursor(8, 0);
+    lcd.print("NULL     ");
+  }
+}
